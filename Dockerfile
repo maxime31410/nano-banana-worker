@@ -29,6 +29,18 @@ RUN cd /comfyui/custom_nodes/RES4LYF && pip install -r requirements.txt || true
 RUN cd /comfyui/custom_nodes/ComfyUI-MelBandRoformer && pip install -r requirements.txt || true
 RUN cd /comfyui/custom_nodes/ComfyUI_StarNodes && pip install -r requirements.txt || true
 
-# ── Chemins modèles depuis le volume (inclut latent_upscale_models) ──────────
+# ── Dépendances du handler custom ────────────────────────────────────────────
+
+RUN pip install websocket-client runpod requests
+
+# ── Handler personnalisé avec support audio ───────────────────────────────────
+
+COPY rp_handler.py /rp_handler.py
+
+# ── Chemins modèles depuis le volume ─────────────────────────────────────────
 
 RUN printf "comfyui:\n    base_path: /runpod-volume/runpod-slim/ComfyUI/\n    checkpoints: models/checkpoints/\n    diffusion_models: models/diffusion_models/\n    vae: models/vae/\n    text_encoders: models/text_encoders/\n    audio_encoders: models/audio_encoders/\n    clip: models/clip/\n    loras: models/loras/\n    upscale_models: models/upscale_models/\n    latent_upscale_models: models/latent_upscale_models/\n" > /comfyui/extra_model_paths.yaml
+
+# ── Démarrage : ComfyUI + handler ────────────────────────────────────────────
+
+CMD python /rp_handler.py
