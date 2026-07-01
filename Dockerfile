@@ -53,3 +53,5 @@ RUN cd /comfyui/custom_nodes && \
 RUN cd /comfyui/custom_nodes && \
     git clone https://github.com/Chaoses-Ib/ComfyUI_Ib_CustomNodes.git && \
     cd ComfyUI_Ib_CustomNodes && pip install -r requirements.txt || true
+
+RUN printf "comfyui:\n    base_path: /runpod-volume/runpod-slim/ComfyUI/\n    checkpoints: models/checkpoints/\n    diffusion_models: models/diffusion_models/\n    vae: models/vae/\n    text_encoders: models/text_encoders/\n    audio_encoders: models/audio_encoders/\n    clip: models/clip/\n    loras: models/loras/\n    upscale_models: models/upscale_models/\n" > /comfyui/extra_model_paths.yaml
