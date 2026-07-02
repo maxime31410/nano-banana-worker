@@ -3,6 +3,7 @@ FROM runpod/worker-comfyui:5.8.5-base
 # ── Mise à jour ComfyUI core (fix VAE audio LTX 2.3) ─────────────────────────
 RUN cd /comfyui && git checkout master && git pull origin master
 RUN pip install --upgrade comfy_aimdo || true
+RUN cd /comfyui && pip install -r requirements.txt
 
 # ── Tous les custom nodes via git clone ──────────────────────────────────────
 RUN cd /comfyui/custom_nodes && \
