@@ -10,7 +10,7 @@ import uuid
 COMFY_HOST = "127.0.0.1:8188"
 COMFY_INPUT_DIR = "/comfyui/input"
 COMFY_OUTPUT_DIR = "/comfyui/output"
-TIMEOUT = 840  # 14 min max par job
+TIMEOUT = 3600  # 60 min max par job (marge large pour 3+ clips, upscale, RIFE)
 
 
 def wait_for_service():
