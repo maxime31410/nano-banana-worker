@@ -68,30 +68,34 @@ MEDIA_TYPES = {
 
 
 def collect_outputs(entry):
-    """Scan every output node for any file reference (gifs, images, videos, audio...)."""
+    """Scan every output node for any file reference (gifs, images, videos, audio...)
+    AND any raw text/debug values (easy showAnything, PreviewAny, etc.)."""
     outputs = []
+    debug_values = {}
     for node_id, node_output in entry.get("outputs", {}).items():
         for key, value in node_output.items():
             if not isinstance(value, list):
                 continue
             for item in value:
-                if not isinstance(item, dict) or "filename" not in item:
-                    continue
-                filename = item["filename"]
-                subfolder = item.get("subfolder", "")
-                filepath = os.path.join(COMFY_OUTPUT_DIR, subfolder, filename)
-                if not os.path.exists(filepath):
-                    continue
-                with open(filepath, "rb") as f:
-                    data = base64.b64encode(f.read()).decode("utf-8")
-                ext = os.path.splitext(filename)[1].lower()
-                outputs.append({
-                    "filename": filename,
-                    "type": "base64",
-                    "data": data,
-                    "media_type": MEDIA_TYPES.get(ext, "application/octet-stream"),
-                })
-    return outputs
+                if isinstance(item, dict) and "filename" in item:
+                    filename = item["filename"]
+                    subfolder = item.get("subfolder", "")
+                    filepath = os.path.join(COMFY_OUTPUT_DIR, subfolder, filename)
+                    if not os.path.exists(filepath):
+                        continue
+                    with open(filepath, "rb") as f:
+                        data = base64.b64encode(f.read()).decode("utf-8")
+                    ext = os.path.splitext(filename)[1].lower()
+                    outputs.append({
+                        "filename": filename,
+                        "type": "base64",
+                        "data": data,
+                        "media_type": MEDIA_TYPES.get(ext, "application/octet-stream"),
+                    })
+                elif isinstance(item, (str, int, float, bool)):
+                    # Debug/preview node output (easy showAnything, PreviewAny, text, etc.)
+                    debug_values.setdefault(f"node_{node_id}_{key}", []).append(item)
+    return outputs, debug_values
 
 
 def handler(job):
@@ -122,14 +126,14 @@ def handler(job):
 
     try:
         entry = wait_for_completion(prompt_id)
-        outputs = collect_outputs(entry)
+        outputs, debug_values = collect_outputs(entry)
     except Exception as e:
         return {"error": f"Workflow execution failed: {str(e)}"}
 
     if not outputs:
-        return {"error": "Workflow produced no output files"}
+        return {"error": "Workflow produced no output files", "debug": debug_values}
 
-    return {"files": outputs}
+    return {"files": outputs, "debug": debug_values}
 
 
 if __name__ == "__main__":
