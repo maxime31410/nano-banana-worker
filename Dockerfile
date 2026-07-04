@@ -38,5 +38,10 @@ RUN pip install websocket-client runpod requests
 # ── Handler personnalisé avec support audio ───────────────────────────────────
 RUN printf "comfyui:\n    base_path: /runpod-volume/runpod-slim/ComfyUI/\n    checkpoints: models/checkpoints/\n    diffusion_models: models/diffusion_models/\n    vae: models/vae/\n    text_encoders: models/text_encoders/\n    audio_encoders: models/audio_encoders/\n    clip: models/clip/\n    loras: models/loras/\n    upscale_models: models/upscale_models/\n    latent_upscale_models: models/latent_upscale_models/\n" > /comfyui/extra_model_paths.yaml
 
+# ── DIAGNOSTIC TEMPORAIRE : localiser le script de démarrage ComfyUI ─────────
+RUN echo "=== FICHIERS ARGS ===" && (find / -xdev -iname "*comfyui_args*" -o -iname "*extra_args*") 2>/dev/null; \
+    echo "=== SCRIPTS DE DEMARRAGE ===" && (find / -maxdepth 4 -iname "start.sh" -o -iname "entrypoint*.sh") 2>/dev/null; \
+    echo "=== CONTENU /start.sh ===" && (cat /start.sh 2>/dev/null || echo "pas de /start.sh a la racine")
+
 # ── Démarrage : ComfyUI + handler ────────────────────────────────────────────
 COPY rp_handler.py /handler.py
