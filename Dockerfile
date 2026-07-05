@@ -23,18 +23,11 @@ RUN cd /comfyui/custom_nodes && \
 RUN cd /comfyui/custom_nodes/ComfyUI-Easy-Use && \
     (git checkout v1.3.6 || git checkout 1.3.6) && \
     echo "=== Easy-Use pinné à ===" && git log -1 --format="%H %ci"
-RUN cd /comfyui/custom_nodes/ComfyUI_essentials && \
-    (git checkout v1.1.0 || git checkout 1.1.0) && \
-    echo "=== essentials pinné à ===" && git log -1 --format="%H %ci"
 RUN cd /comfyui/custom_nodes/ComfyUI-Frame-Interpolation && \
     (git checkout v1.0.7 || git checkout 1.0.7 || git checkout $(git rev-list -n 1 --before="2025-07-01" HEAD)) && \
     echo "=== Frame-Interpolation pinné à ===" && git log -1 --format="%H %ci"
-RUN cd /comfyui/custom_nodes/comfy_mtb && \
-    (git checkout v0.5.4 || git checkout 0.5.4) && \
-    echo "=== comfy-mtb pinné à ===" && git log -1 --format="%H %ci"
-RUN cd /comfyui/custom_nodes/ComfyUI_StarNodes && \
-    (git checkout v1.9.9 || git checkout 1.9.9) && \
-    echo "=== StarNodes pinné à ===" && git log -1 --format="%H %ci"
+# ── essentials, comfy-mtb, StarNodes : pas de tag de version disponible sur ──
+# ── ces dépôts, clonés tels quels (état validé le 05/07/2026 sur pod test) ──
 
 # ── Dépendances Python des nodes ─────────────────────────────────────────────
 RUN cd /comfyui/custom_nodes/ComfyUI-Impact-Pack && pip install -r requirements.txt || true
