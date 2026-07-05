@@ -47,5 +47,13 @@ RUN printf "comfyui:\n    base_path: /runpod-volume/runpod-slim/ComfyUI/\n    ch
 RUN sed -i 's/--disable-metadata/--disable-metadata --disable-dynamic-vram/g' /start.sh && \
     echo "=== VERIFICATION DU PATCH ===" && grep -n "disable-dynamic-vram" /start.sh
 
+# ── DIAGNOSTIC : identifier tous les packs qui définissent un node ──────────
+# ── ImageBatchMulti et lequel utilise 'image0' comme nom d'input ────────────
+RUN echo "=== FICHIERS DEFINISSANT ImageBatchMulti ===" && \
+    grep -rl "class ImageBatchMulti" /comfyui/custom_nodes/ 2>/dev/null; \
+    echo "=== FICHIERS CONTENANT 'image0' ===" && \
+    grep -rl "\"image0\"\|'image0'" /comfyui/custom_nodes/ 2>/dev/null; \
+    echo "=== FIN DIAGNOSTIC ==="
+
 # ── Démarrage : ComfyUI + handler ────────────────────────────────────────────
 COPY rp_handler.py /handler.py
