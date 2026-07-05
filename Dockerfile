@@ -24,6 +24,15 @@ RUN cd /comfyui/custom_nodes && \
     git clone https://github.com/vslinx/comfyui-vslinx-nodes.git && \
     git clone https://github.com/Chaoses-Ib/ComfyUI_Ib_CustomNodes.git
 
+# ── Fix : figer les nodes dont le schéma a cassé la validation (RIFE VFI, ──
+# ── Image Batch Multi Swwan) à la version installée sur le pod ──────────
+RUN cd /comfyui/custom_nodes/ComfyUI-Frame-Interpolation && \
+    git checkout 5cd1113236b0fb032a51bf9d63ba196a2510b0d4 && \
+    echo "=== Frame-Interpolation pinné à v1.0.7 ===" && git log -1 --format="%H %ci"
+RUN cd /comfyui/custom_nodes/ComfyUI_Swwan && \
+    git checkout $(git rev-list -n 1 --before="2026-05-15" HEAD) && \
+    echo "=== Swwan pinné à ===" && git log -1 --format="%H %ci"
+
 # ── Dépendances Python des nodes ─────────────────────────────────────────────
 RUN cd /comfyui/custom_nodes/ComfyUI-Impact-Pack && pip install -r requirements.txt || true
 RUN cd /comfyui/custom_nodes/ComfyUI-Frame-Interpolation && pip install -r requirements.txt || true
