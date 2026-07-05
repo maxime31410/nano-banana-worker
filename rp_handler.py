@@ -68,34 +68,49 @@ MEDIA_TYPES = {
 
 
 def collect_outputs(entry):
-    """Scan every output node for any file reference (gifs, images, videos, audio...)
-    AND any raw text/debug values (easy showAnything, PreviewAny, etc.)."""
+    """Scan every output node for any file reference (gifs, images, videos, audio...)."""
     outputs = []
-    debug_values = {}
     for node_id, node_output in entry.get("outputs", {}).items():
         for key, value in node_output.items():
             if not isinstance(value, list):
                 continue
             for item in value:
-                if isinstance(item, dict) and "filename" in item:
-                    filename = item["filename"]
-                    subfolder = item.get("subfolder", "")
-                    filepath = os.path.join(COMFY_OUTPUT_DIR, subfolder, filename)
-                    if not os.path.exists(filepath):
-                        continue
-                    with open(filepath, "rb") as f:
-                        data = base64.b64encode(f.read()).decode("utf-8")
-                    ext = os.path.splitext(filename)[1].lower()
-                    outputs.append({
-                        "filename": filename,
-                        "type": "base64",
-                        "data": data,
-                        "media_type": MEDIA_TYPES.get(ext, "application/octet-stream"),
-                    })
-                elif isinstance(item, (str, int, float, bool)):
-                    # Debug/preview node output (easy showAnything, PreviewAny, text, etc.)
-                    debug_values.setdefault(f"node_{node_id}_{key}", []).append(item)
-    return outputs, debug_values
+                if not isinstance(item, dict) or "filename" not in item:
+                    continue
+                filename = item["filename"]
+                subfolder = item.get("subfolder", "")
+                filepath = os.path.join(COMFY_OUTPUT_DIR, subfolder, filename)
+                if not os.path.exists(filepath):
+                    continue
+                with open(filepath, "rb") as f:
+                    data = base64.b64encode(f.read()).decode("utf-8")
+                ext = os.path.splitext(filename)[1].lower()
+                outputs.append({
+                    "filename": filename,
+                    "type": "base64",
+                    "data": data,
+                    "media_type": MEDIA_TYPES.get(ext, "application/octet-stream"),
+                })
+    return outputs
+
+
+def patch_media_inputs(workflow, uploaded_images, uploaded_audio):
+    """Overwrite LoadImage/LoadAudio nodes in the workflow with the filenames
+    actually uploaded for this job, so the workflow JSON itself never needs
+    to be edited by hand between requests."""
+    image_name = uploaded_images[0]["name"] if uploaded_images else None
+    audio_name = uploaded_audio[0]["name"] if uploaded_audio else None
+
+    for node in workflow.values():
+        class_type = node.get("class_type")
+        inputs = node.get("inputs", {})
+        if class_type == "LoadImage" and image_name:
+            inputs["image"] = image_name
+        elif class_type == "LoadAudio" and audio_name:
+            inputs["audio"] = audio_name
+            if "audioUI" in inputs:
+                inputs["audioUI"] = f"/api/view?filename={audio_name}&type=input&subfolder="
+    return workflow
 
 
 def handler(job):
@@ -104,17 +119,22 @@ def handler(job):
     if not workflow:
         return {"error": "No workflow provided"}
 
-    for img in job_input.get("images", []):
+    uploaded_images = job_input.get("images", [])
+    uploaded_audio = job_input.get("audio", [])
+
+    for img in uploaded_images:
         data = img["image"]
         if "," in data:
             data = data.split(",", 1)[1]
         upload_file(img["name"], base64.b64decode(data))
 
-    for audio in job_input.get("audio", []):
+    for audio in uploaded_audio:
         data = audio["audio"]
         if "," in data:
             data = data.split(",", 1)[1]
         upload_file(audio["name"], base64.b64decode(data))
+
+    workflow = patch_media_inputs(workflow, uploaded_images, uploaded_audio)
 
     client_id = str(uuid.uuid4())
 
@@ -126,14 +146,14 @@ def handler(job):
 
     try:
         entry = wait_for_completion(prompt_id)
-        outputs, debug_values = collect_outputs(entry)
+        outputs = collect_outputs(entry)
     except Exception as e:
         return {"error": f"Workflow execution failed: {str(e)}"}
 
     if not outputs:
-        return {"error": "Workflow produced no output files", "debug": debug_values}
+        return {"error": "Workflow produced no output files"}
 
-    return {"files": outputs, "debug": debug_values}
+    return {"files": outputs}
 
 
 if __name__ == "__main__":
