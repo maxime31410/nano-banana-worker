@@ -37,7 +37,7 @@ RUN cd /comfyui/custom_nodes/ComfyUI-MelBandRoformer && pip install -r requireme
 RUN cd /comfyui/custom_nodes/ComfyUI_StarNodes && pip install -r requirements.txt || true
 
 # ── Dépendances du handler custom ────────────────────────────────────────────
-RUN pip install websocket-client runpod requests
+RUN pip install websocket-client runpod requests boto3
 
 # ── Handler personnalisé avec support audio ───────────────────────────────────
 RUN printf "comfyui:\n    base_path: /runpod-volume/runpod-slim/ComfyUI/\n    checkpoints: models/checkpoints/\n    diffusion_models: models/diffusion_models/\n    vae: models/vae/\n    text_encoders: models/text_encoders/\n    audio_encoders: models/audio_encoders/\n    clip: models/clip/\n    loras: models/loras/\n    upscale_models: models/upscale_models/\n    latent_upscale_models: models/latent_upscale_models/\n" > /comfyui/extra_model_paths.yaml

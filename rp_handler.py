@@ -6,6 +6,8 @@ import os
 import requests
 import base64
 import uuid
+import boto3
+from botocore.config import Config
 
 COMFY_HOST = "127.0.0.1:8188"
 COMFY_INPUT_DIR = "/comfyui/input"
@@ -67,8 +69,30 @@ MEDIA_TYPES = {
 }
 
 
-def collect_outputs(entry):
-    """Scan every output node for any file reference (gifs, images, videos, audio...)."""
+def get_s3_client():
+    endpoint_url = os.environ.get("BUCKET_ENDPOINT_URL")
+    access_key = os.environ.get("BUCKET_ACCESS_KEY_ID")
+    secret_key = os.environ.get("BUCKET_SECRET_ACCESS_KEY")
+    if not all([endpoint_url, access_key, secret_key]):
+        return None, None
+    # BUCKET_ENDPOINT_URL is expected as https://<account_id>.r2.cloudflarestorage.com/<bucket>
+    base_endpoint, _, bucket_name = endpoint_url.rstrip("/").rpartition("/")
+    client = boto3.client(
+        "s3",
+        endpoint_url=base_endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name="auto",  # required convention for Cloudflare R2
+        config=Config(signature_version="s3v4"),
+    )
+    return client, bucket_name
+
+
+def collect_outputs(entry, job_id):
+    """Scan every output node for any file reference (gifs, images, videos, audio...)
+    and upload each one to R2, returning URLs instead of embedding base64 data
+    (avoids RunPod's response payload size limit)."""
+    s3_client, bucket_name = get_s3_client()
     outputs = []
     for node_id, node_output in entry.get("outputs", {}).items():
         for key, value in node_output.items():
@@ -82,15 +106,28 @@ def collect_outputs(entry):
                 filepath = os.path.join(COMFY_OUTPUT_DIR, subfolder, filename)
                 if not os.path.exists(filepath):
                     continue
-                with open(filepath, "rb") as f:
-                    data = base64.b64encode(f.read()).decode("utf-8")
                 ext = os.path.splitext(filename)[1].lower()
-                outputs.append({
-                    "filename": filename,
-                    "type": "base64",
-                    "data": data,
-                    "media_type": MEDIA_TYPES.get(ext, "application/octet-stream"),
-                })
+                media_type = MEDIA_TYPES.get(ext, "application/octet-stream")
+
+                if s3_client:
+                    object_key = f"{job_id}/{filename}"
+                    s3_client.upload_file(
+                        filepath, bucket_name, object_key,
+                        ExtraArgs={"ContentType": media_type},
+                    )
+                    url = s3_client.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": bucket_name, "Key": object_key},
+                        ExpiresIn=604800,  # 7 days
+                    )
+                    outputs.append({"filename": filename, "type": "url", "url": url, "media_type": media_type})
+                else:
+                    # Fallback: no bucket configured, embed as base64 (small files only)
+                    with open(filepath, "rb") as f:
+                        data = base64.b64encode(f.read()).decode("utf-8")
+                    outputs.append({
+                        "filename": filename, "type": "base64", "data": data, "media_type": media_type,
+                    })
     return outputs
 
 
@@ -146,7 +183,7 @@ def handler(job):
 
     try:
         entry = wait_for_completion(prompt_id)
-        outputs = collect_outputs(entry)
+        outputs = collect_outputs(entry, job.get("id", client_id))
     except Exception as e:
         return {"error": f"Workflow execution failed: {str(e)}"}
 
